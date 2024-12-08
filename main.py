@@ -40,11 +40,14 @@ def visualize_network(G):
     plt.show()
 
 
-def flooding_search(G, start_node, target_resource, ttl):
+def flooding_search(G, start_node, target_resource, ttl, cache):
+    if (start_node, target_resource) in cache:
+        return cache[(start_node, target_resource)]
+
     visited = set()
     queue = [(start_node, 0)]  # (nó, profundidade)
     messages = 0
-    frames = []  # Para a animação
+    frames = []
     pos = nx.spring_layout(G, seed=42)
 
     while queue:
@@ -58,24 +61,37 @@ def flooding_search(G, start_node, target_resource, ttl):
         frames.append((node_colors, list(visited)))
 
         if target_resource in G.nodes[node]["resources"]:
-            return (
+            result = (
                 len(visited),
                 messages,
                 f"Recurso {target_resource} encontrado no nó {node}.",
                 frames,
             )
+            cache[(start_node, target_resource)] = result
+            return result
+
         for neighbor in G.neighbors(node):
             messages += 1
             queue.append((neighbor, depth + 1))
 
-    return len(visited), messages, f"Recurso {target_resource} não encontrado.", frames
+    result = (
+        len(visited),
+        messages,
+        f"Recurso {target_resource} não encontrado.",
+        frames,
+    )
+    cache[(start_node, target_resource)] = result
+    return result
 
 
-def random_walk_search(G, start_node, target_resource, ttl):
+def random_walk_search(G, start_node, target_resource, ttl, cache):
+    if (start_node, target_resource) in cache:
+        return cache[(start_node, target_resource)]
+
     visited = set()
     current_node = start_node
     messages = 0
-    frames = []  # Para a animação
+    frames = []
     pos = nx.spring_layout(G, seed=42)
 
     for _ in range(ttl):
@@ -86,49 +102,29 @@ def random_walk_search(G, start_node, target_resource, ttl):
         frames.append((node_colors, list(visited)))
 
         if target_resource in G.nodes[current_node]["resources"]:
-            return (
+            result = (
                 len(visited),
                 messages,
                 f"Recurso {target_resource} encontrado no nó {current_node}.",
                 frames,
             )
+            cache[(start_node, target_resource)] = result
+            return result
+
         neighbors = list(G.neighbors(current_node))
         if not neighbors:
             break
         current_node = random.choice(neighbors)
         messages += 1
 
-    return len(visited), messages, f"Recurso {target_resource} não encontrado.", frames
-
-
-def depth_first_search(G, start_node, target_resource, ttl):
-    visited = set()
-    stack = [(start_node, 0)]
-    messages = 0
-    frames = []
-    pos = nx.spring_layout(G, seed=42)
-
-    while stack:
-        node, depth = stack.pop()
-        if depth > ttl or node in visited:
-            continue
-        visited.add(node)
-
-        node_colors = ["red" if n in visited else "skyblue" for n in G.nodes()]
-        frames.append((node_colors, list(visited)))
-
-        if target_resource in G.nodes[node]["resources"]:
-            return (
-                len(visited),
-                messages,
-                f"Recurso {target_resource} encontrado no nó {node}.",
-                frames,
-            )
-        for neighbor in G.neighbors(node):
-            messages += 1
-            stack.append((neighbor, depth + 1))
-
-    return len(visited), messages, f"Recurso {target_resource} não encontrado.", frames
+    result = (
+        len(visited),
+        messages,
+        f"Recurso {target_resource} não encontrado.",
+        frames,
+    )
+    cache[(start_node, target_resource)] = result
+    return result
 
 
 def animate_search(G, frames, pos):
@@ -161,25 +157,24 @@ with open("config.json", "r") as f:
 G = create_network(CONFIG)
 validate_network(G, CONFIG)
 
-visualize_network(G)
 
-node_id = "n1"
-resource_id = "r7"
-ttl = 8
-algorithm = "random_walk"
+def start_search(node_id, resource_id, ttl):
+    cache = {}
 
-if algorithm == "flooding":
-    visited, messages, result, frames = flooding_search(G, node_id, resource_id, ttl)
-elif algorithm == "random_walk":
-    visited, messages, result, frames = random_walk_search(G, node_id, resource_id, ttl)
-elif algorithm == "depth_first":
-    visited, messages, result, frames = depth_first_search(G, node_id, resource_id, ttl)
-else:
-    raise ValueError("Algoritmo de busca inválido!")
+    visualize_network(G)
 
-print(f"Resultado: {result}")
-print(f"Número total de nós envolvidos: {visited}")
-print(f"Número total de mensagens trocadas: {messages}")
+    visited, messages, result, frames = flooding_search(
+        G, node_id, resource_id, ttl, cache
+    )
 
-pos = nx.spring_layout(G, seed=42)
-animate_search(G, frames, pos)
+    pos = nx.spring_layout(G, seed=42)
+
+    animate_search(G, frames, pos)
+
+    print(f"Resultado: {result}")
+    print(f"Número total de nós envolvidos: {visited}")
+    print(f"Número total de mensagens trocadas: {messages}")
+    print()
+
+
+# start_search(node_id="n1", resource_id="r7", ttl=8)
